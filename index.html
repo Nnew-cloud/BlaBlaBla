@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบเบิกสวัสดิการพนักงาน - Employee Welfare Claim</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f8fafc;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo & Brand -->
+                <div class="flex items-center space-x-3">
+                    <div class="bg-gradient-to-tr from-brand-700 to-brand-500 text-white p-2.5 rounded-xl shadow-md flex items-center justify-center">
+                        <i class="fa-solid me-0 fa-file-invoice-dollar text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg text-slate-900 leading-tight">Welfare Claim</h1>
+                        <p class="text-xs text-slate-500">ระบบเบิกสวัสดิการพนักงาน</p>
+                    </div>
+                </div>
+
+                <!-- User Info & View Switcher -->
+                <div class="flex items-center space-x-4">
+                    <!-- Toggle View Button (Employee vs Admin/HR) -->
+                    <div class="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200">
+                        <button id="btn-view-employee" onclick="switchView('employee')" 
+                                class="px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 bg-white text-brand-700 shadow-sm">
+                            <i class="fa-solid fa-user"></i>
+                            <span>มุมมองพนักงาน</span>
+                        </button>
+                        <button id="btn-view-hr" onclick="switchView('hr')" 
+                                class="px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 text-slate-600 hover:text-slate-900">
+                            <i class="fa-solid fa-user-shield"></i>
+                            <span class="flex items-center gap-1">
+                                มุมมอง HR / ผู้อนุมัติ
+                                <span id="pending-badge" class="hidden bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">0</span>
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Profile Dropdown Dummy -->
+                    <div class="hidden sm:flex items-center gap-3 border-l pl-4 border-slate-200">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150" 
+                             alt="Avatar" class="w-9 h-9 rounded-full object-cover ring-2 ring-brand-500/20">
+                        <div class="text-left">
+                            <div class="text-sm font-semibold text-slate-800" id="user-display-name">สมชาย ใจดี</div>
+                            <div class="text-xs text-slate-500" id="user-display-role">Senior Software Engineer</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+
+        <!-- Banner Alert for Role Preview -->
+        <div id="role-banner" class="mb-6 p-4 rounded-xl bg-brand-50 border border-brand-200 text-brand-900 flex items-center justify-between shadow-xs">
+            <div class="flex items-center gap-3">
+                <i id="role-icon" class="fa-solid fa-circle-info text-brand-600 text-lg"></i>
+                <div>
+                    <span class="font-semibold" id="role-title">ขณะนี้คุณอยู่ที่: มุมมองพนักงาน</span>
+                    <p class="text-xs text-brand-700" id="role-desc">คุณสามารถตรวจสอบวงเงิน คงเหลือ และยื่นคำร้องเบิกสวัสดิการได้ที่นี่</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== EMPLOYEE VIEW ==================== -->
+        <div id="employee-view" class="space-y-8">
+            
+            <!-- Dashboard / Welfare Quotas -->
+            <section>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-brand-600"></i>
+                        สรุปสิทธิ์สวัสดิการประจำปี 2569
+                    </h2>
+                    <span class="text-xs text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-2xs">
+                        รีเซ็ตสิทธิ์ทุกวันที่ 31 ธ.ค.
+                    </span>
+                </div>
+
+                <!-- Welfare Cards Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5" id="quotas-grid">
+                    <!-- Cards injected by JS -->
+                </div>
+            </section>
+
+            <!-- Actions & Claim History Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                
+                <!-- Quick Claim Form (1 Column) -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                    <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                        <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane text-brand-600"></i>
+                            ยื่นคำร้องเบิกสวัสดิการ
+                        </h3>
+                    </div>
+
+                    <form id="claim-form" onsubmit="handleClaimSubmit(event)" class="space-y-4">
+                        <!-- Category Selection -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                หมวดหมู่สวัสดิการ <span class="text-red-500">*</span>
+                            </label>
+                            <select id="claim-category" required onchange="updateCategoryHint()" 
+                                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm bg-white font-normal transition-all">
+                                <option value="" disabled selected>-- เลือกหมวดหมู่สวัสดิการ --</option>
+                                <option value="medical">🏥 ค่ารักษาพยาบาล (Medical)</option>
+                                <option value="learning">🎓 ค่าเรียนรู้ & คอร์สเรียน (Learning)</option>
+                                <option value="fitness">🏋️ ค่าออกกำลังกาย & ฟิตเนส (Fitness)</option>
+                                <option value="equipment">💻 สวัสดิการอุปกรณ์ & ท่องเที่ยว (Lifestyle)</option>
+                            </select>
+                            <p id="category-hint" class="text-[11px] text-slate-500 mt-1 hidden">วงเงินคงเหลือ: <span id="hint-remaining" class="font-semibold text-brand-600">0</span> บาท</p>
+                        </div>
+
+                        <!-- Amount & Date -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    จำนวนเงิน (บาท) <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <input type="number" id="claim-amount" min="1" step="0.01" required placeholder="0.00"
+                                           class="w-full pl-3.5 pr-8 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm">
+                                    <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">฿</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    วันที่ตามใบเสร็จ <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="claim-date" required
+                                       class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm text-slate-700">
+                            </div>
+                        </div>
+
+                        <!-- Description / Note -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                รายละเอียด / เหตุผลการเบิก <span class="text-red-500">*</span>
+                            </label>
+                            <textarea id="claim-title" rows="2" required placeholder="เช่น ค่าตรวจสุขภาพประจำปี, คอร์สเรียน React Advanced..."
+                                      class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm resize-none"></textarea>
+                        </div>
+
+                        <!-- Receipt Upload Simulated Area -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                แนบหลักฐานใบเสร็จ / ใบรับรองแพทย์ <span class="text-red-500">*</span>
+                            </label>
+                            <div id="drop-zone" onclick="document.getElementById('receipt-file').click()" 
+                                 class="border-2 border-dashed border-slate-300 hover:border-brand-500 bg-slate-50 hover:bg-brand-50/30 transition-all rounded-xl p-4 text-center cursor-pointer group">
+                                <input type="file" id="receipt-file" class="hidden" accept="image/*,.pdf" onchange="handleFileSelect(event)">
+                                <div id="upload-prompt" class="flex flex-col items-center justify-center gap-1.5">
+                                    <div class="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <i class="fa-solid fa-cloud-arrow-up text-brand-600"></i>
+                                    </div>
+                                    <p class="text-xs font-medium text-slate-700">คลิกเพื่ออัปโหลด หรือลากไฟล์มาวาง</p>
+                                    <p class="text-[10px] text-slate-400">รองรับ JPG, PNG, PDF (สูงสุด 5MB)</p>
+                                </div>
+                                <div id="file-preview" class="hidden flex items-center justify-between bg-white p-2.5 rounded-lg border border-slate-200">
+                                    <div class="flex items-center gap-2 overflow-hidden">
+                                        <i class="fa-solid fa-file-invoice text-brand-600 text-lg"></i>
+                                        <span id="file-name" class="text-xs font-medium text-slate-700 truncate max-w-[180px]">filename.pdf</span>
+                                    </div>
+                                    <button type="button" onclick="removeFile(event)" class="text-slate-400 hover:text-red-500 p-1">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" 
+                                class="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>ส่งคำร้องขอเบิกสวัสดิการ</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Claim History Section (2 Columns) -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                    
+                    <!-- Search & Filter Controls -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 mb-4 border-b border-slate-100">
+                        <div>
+                            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-clock-rotate-left text-brand-600"></i>
+                                ประวัติการขอเบิกสวัสดิการ
+                            </h3>
+                            <p class="text-xs text-slate-500">ติดตามสถานะและรายการยื่นขอเบิกทั้งหมดของคุณ</p>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <!-- Filter Category / Status -->
+                            <select id="filter-status" onchange="renderEmployeeClaims()" 
+                                    class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                <option value="all">ทุกสถานะ</option>
+                                <option value="pending">รอตรวจสอบ</option>
+                                <option value="approved">อนุมัติแล้ว</option>
+                                <option value="rejected">ปฏิเสธ</option>
+                            </select>
+
+                            <!-- Search Input -->
+                            <div class="relative">
+                                <input type="text" id="search-input" onkeyup="renderEmployeeClaims()" placeholder="ค้นหารายการ..."
+                                       class="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs w-36 sm:w-48 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-slate-400 text-xs"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Claims List Cards / Table -->
+                    <div id="employee-claims-list" class="space-y-3">
+                        <!-- Items rendered via JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ==================== HR / ADMIN VIEW ==================== -->
+        <div id="hr-view" class="hidden space-y-6">
+            
+            <!-- HR Header & Summary stats -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">คำร้องรอตรวจสอบ</p>
+                        <p class="text-2xl font-bold text-amber-600 mt-1" id="hr-stat-pending">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-xl">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">อนุมัติแล้วเดือนนี้</p>
+                        <p class="text-2xl font-bold text-emerald-600 mt-1" id="hr-stat-approved">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-xl">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">ยอดรวมอนุมัติจ่ายทั้งหมด</p>
+                        <p class="text-2xl font-bold text-slate-900 mt-1" id="hr-stat-total-amount">฿0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 text-xl">
+                        <i class="fa-solid fa-vault"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HR Approval Table Container -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="font-bold text-slate-900 flex items-center gap-2 text-lg">
+                            <i class="fa-solid fa-tasks text-brand-600"></i>
+                            รายการคำร้องขอเบิกสวัสดิการพนักงานทั้งหมด
+                        </h3>
+                        <p class="text-xs text-slate-500">อนุมัติหรือปฏิเสธคำเบิกของพนักงานในระบบ</p>
+                    </div>
+
+                    <!-- Filter Tabs -->
+                    <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-medium text-slate-600 self-start sm:self-auto">
+                        <button onclick="filterHrTable('all')" id="tab-hr-all" class="px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-2xs">ทั้งหมด</button>
+                        <button onclick="filterHrTable('pending')" id="tab-hr-pending" class="px-3 py-1.5 rounded-lg hover:text-slate-900">รอตรวจสอบ</button>
+                        <button onclick="filterHrTable('approved')" id="tab-hr-approved" class="px-3 py-1.5 rounded-lg hover:text-slate-900">อนุมัติแล้ว</button>
+                        <button onclick="filterHrTable('rejected')" id="tab-hr-rejected" class="px-3 py-1.5 rounded-lg hover:text-slate-900">ปฏิเสธ</button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-[11px] uppercase font-semibold text-slate-500 border-b border-slate-200">
+                                <th class="py-3.5 px-4">พนักงาน</th>
+                                <th class="py-3.5 px-4">หมวดหมู่ & รายละเอียด</th>
+                                <th class="py-3.5 px-4">วันที่ใบเสร็จ</th>
+                                <th class="py-3.5 px-4 text-right">จำนวนเงิน</th>
+                                <th class="py-3.5 px-4 text-center">หลักฐาน</th>
+                                <th class="py-3.5 px-4 text-center">สถานะ</th>
+                                <th class="py-3.5 px-4 text-center">จัดการคำร้อง</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hr-claims-tbody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Items injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: View Receipt Detail -->
+    <div id="receipt-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative space-y-4">
+            <button onclick="closeReceiptModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2">
+                <i class="fa-solid fa-receipt text-brand-600"></i>
+                หลักฐานใบเสร็จรับเงิน
+            </h3>
+            
+            <div id="receipt-modal-content" class="bg-slate-100 border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center min-h-[220px]">
+                <!-- Preview details injected here -->
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeReceiptModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+            © 2569 Employee Welfare Claim System. Designed for Enterprise Modern Workplace.
+        </div>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Initial Quota Definitions
+        const INITIAL_QUOTAS = {
+            medical: { id: 'medical', name: 'ค่ารักษาพยาบาล', limit: 25000, used: 8500, icon: 'fa-user-doctor', color: 'emerald' },
+            learning: { id: 'learning', name: 'ค่าเรียนรู้ & คอร์สเรียน', limit: 15000, used: 12000, icon: 'fa-graduation-cap', color: 'blue' },
+            fitness: { id: 'fitness', name: 'ค่าออกกำลังกาย & ฟิตเนส', limit: 8000, used: 3500, icon: 'fa-dumbbell', color: 'amber' },
+            equipment: { id: 'equipment', name: 'สวัสดิการอุปกรณ์ & ท่องเที่ยว', limit: 10000, used: 0, icon: 'fa-laptop-house', color: 'purple' }
+        };
+
+        // State Management
+        let quotas = JSON.parse(localStorage.getItem('welfare_quotas')) || INITIAL_QUOTAS;
+        let currentView = 'employee'; // 'employee' | 'hr'
+        let selectedFile = null;
+        let hrTableFilter = 'all';
+
+        // Initial Mock Claims Data
+        const INITIAL_CLAIMS = [
+            {
+                id: 'CLM-9082',
+                user: 'สมชาย ใจดี',
+                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
+                role: 'Senior Software Engineer',
+                category: 'medical',
+                categoryName: 'ค่ารักษาพยาบาล',
+                title: 'ค่าตรวจสุขภาพและทำฟันประจำปี',
+                amount: 3500,
+                date: '2026-10-15',
+                status: 'approved',
+                fileName: 'medical_receipt_oct.pdf',
+                createdAt: '2026-10-16 10:30'
+            },
+            {
+                id: 'CLM-9081',
+                user: 'สมชาย ใจดี',
+                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
+                role: 'Senior Software Engineer',
+                category: 'learning',
+                categoryName: 'ค่าเรียนรู้ & คอร์สเรียน',
+                title: 'ค่าสอบใบรับรอง AWS Certified Solutions Architect',
+                amount: 12000,
+                date: '2026-10-20',
+                status: 'approved',
+                fileName: 'aws_exam_invoice.pdf',
+                createdAt: '2026-10-21 14:15'
+            },
+            {
+                id: 'CLM-9095',
+                user: 'สมชาย ใจดี',
+                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
+                role: 'Senior Software Engineer',
+                category: 'fitness',
+                categoryName: 'ค่าออกกำลังกาย & ฟิตเนส',
+                title: 'ค่าสมาชิกฟิตเนสรายปี 2569 (Fitness First)',
+                amount: 3500,
+                date: '2026-11-01',
+                status: 'pending',
+                fileName: 'fitness_membership_slip.jpg',
+                createdAt: '2026-11-02 09:10'
+            },
+            {
+                id: 'CLM-9060',
+                user: 'สมหญิง รักดี',
+                avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
+                role: 'UX/UI Designer',
+                category: 'medical',
+                categoryName: 'ค่ารักษาพยาบาล',
+                title: 'ค่ายาและพบแพทย์คลินิกตา',
+                amount: 5000,
+                date: '2026-10-05',
+                status: 'approved',
+                fileName: 'clinic_bill.pdf',
+                createdAt: '2026-10-06 16:45'
+            }
+        ];
+
+        let claims = JSON.parse(localStorage.getItem('welfare_claims')) || INITIAL_CLAIMS;
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            renderQuotas();
+            renderEmployeeClaims();
+            updatePendingBadge();
+            // Set max date for input to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('claim-date').setAttribute('max', today);
+            document.getElementById('claim-date').value = today;
+        });
+
+        // Save State
+        function saveData() {
+            localStorage.setItem('welfare_quotas', JSON.stringify(quotas));
+            localStorage.setItem('welfare_claims', JSON.stringify(claims));
+        }
+
+        // Switch UI Views
+        function switchView(view) {
+            currentView = view;
+            const empView = document.getElementById('employee-view');
+            const hrView = document.getElementById('hr-view');
+            const btnEmp = document.getElementById('btn-view-employee');
+            const btnHr = document.getElementById('btn-view-hr');
+            const bannerTitle = document.getElementById('role-title');
+            const bannerDesc = document.getElementById('role-desc');
+            const bannerIcon = document.getElementById('role-icon');
+
+            if (view === 'employee') {
+                empView.classList.remove('hidden');
+                hrView.classList.add('hidden');
+                
+                btnEmp.className = "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 bg-white text-brand-700 shadow-sm";
+                btnHr.className = "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 text-slate-600 hover:text-slate-900";
+
+                bannerTitle.innerText = "ขณะนี้คุณอยู่ที่: มุมมองพนักงาน (Employee View)";
+                bannerDesc.innerText = "คุณสามารถตรวจสอบวงเงิน คงเหลือ และยื่นคำร้องเบิกสวัสดิการได้ที่นี่";
+                bannerIcon.className = "fa-solid fa-user text-brand-600 text-lg";
+                
+                renderQuotas();
+                renderEmployeeClaims();
+            } else {
+                empView.classList.add('hidden');
+                hrView.classList.remove('hidden');
+
+                btnHr.className = "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 bg-white text-brand-700 shadow-sm";
+                btnEmp.className = "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 text-slate-600 hover:text-slate-900";
+
+                bannerTitle.innerText = "ขณะนี้คุณอยู่ที่: มุมมองผู้จัดการ / HR (Admin Approval View)";
+                bannerDesc.innerText = "คุณสามารถตรวจสอบข้อมูลรายละเอียด และอนุมัติหรือปฏิเสธคำร้องขอเบิกของพนักงานได้";
+                bannerIcon.className = "fa-solid fa-user-shield text-amber-600 text-lg";
+
+                renderHrTable();
+                renderHrStats();
+            }
+        }
+
+        // Render Quota Cards with Progress Bar
+        function renderQuotas() {
+            const container = document.getElementById('quotas-grid');
+            container.innerHTML = '';
+
+            Object.values(quotas).forEach(q => {
+                const remaining = q.limit - q.used;
+                const percent = Math.min(100, Math.round((q.used / q.limit) * 100));
+                
+                // Color badges
+                let badgeBg = 'bg-blue-50 text-blue-700';
+                let progressBg = 'bg-brand-600';
+                
+                if (q.color === 'emerald') {
+                    badgeBg = 'bg-emerald-50 text-emerald-700';
+                    progressBg = 'bg-emerald-500';
+                } else if (q.color === 'amber') {
+                    badgeBg = 'bg-amber-50 text-amber-700';
+                    progressBg = 'bg-amber-500';
+                } else if (q.color === 'purple') {
+                    badgeBg = 'bg-purple-50 text-purple-700';
+                    progressBg = 'bg-purple-500';
+                }
+
+                const card = `
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 rounded-xl ${badgeBg} flex items-center justify-center text-lg">
+                                    <i class="fa-solid ${q.icon}"></i>
+                                </div>
+                                <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${badgeBg}">
+                                    ใช้ไป ${percent}%
+                                </span>
+                            </div>
+                            <h3 class="font-bold text-slate-800 text-sm mb-1">${q.name}</h3>
+                            <div class="flex items-baseline gap-1.5">
+                                <span class="text-2xl font-extrabold text-slate-900">฿${remaining.toLocaleString()}</span>
+                                <span class="text-xs text-slate-400 font-normal">คงเหลือ</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-t border-slate-100">
+                            <!-- Progress Bar -->
+                            <div class="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
+                                <div class="${progressBg} h-2 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+                            </div>
+                            <div class="flex justify-between text-[11px] text-slate-500">
+                                <span>เบิกแล้ว: ฿${q.used.toLocaleString()}</span>
+                                <span>วงเงินรวม: ฿${q.limit.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        // Category Hint update
+        function updateCategoryHint() {
+            const catKey = document.getElementById('claim-category').value;
+            const hintElem = document.getElementById('category-hint');
+            const hintRemaining = document.getElementById('hint-remaining');
+
+            if (catKey && quotas[catKey]) {
+                const remaining = quotas[catKey].limit - quotas[catKey].used;
+                hintRemaining.innerText = remaining.toLocaleString();
+                hintElem.classList.remove('hidden');
+            } else {
+                hintElem.classList.add('hidden');
+            }
+        }
+
+        // Handle Form Receipt Selection (Drag & Drop Zone)
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                selectedFile = files[0];
+                document.getElementById('upload-prompt').classList.add('hidden');
+                document.getElementById('file-preview').classList.remove('hidden');
+                document.getElementById('file-name').innerText = selectedFile.name;
+            }
+        }
+
+        function removeFile(e) {
+            e.stopPropagation();
+            selectedFile = null;
+            document.getElementById('receipt-file').value = '';
+            document.getElementById('upload-prompt').classList.remove('hidden');
+            document.getElementById('file-preview').classList.add('hidden');
+        }
+
+        // Handle Claim Submission Form
+        function handleClaimSubmit(e) {
+            e.preventDefault();
+
+            const categoryKey = document.getElementById('claim-category').value;
+            const amount = parseFloat(document.getElementById('claim-amount').value);
+            const date = document.getElementById('claim-date').value;
+            const title = document.getElementById('claim-title').value.trim();
+
+            if (!categoryKey || !amount || !date || !title) {
+                showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+                return;
+            }
+
+            if (!selectedFile) {
+                showToast('กรุณาแนบไฟล์ใบเสร็จรับเงิน', 'warning');
+                return;
+            }
+
+            // Check if amount exceeds remaining quota
+            const targetQuota = quotas[categoryKey];
+            const remaining = targetQuota.limit - targetQuota.used;
+            
+            if (amount > remaining) {
+                showToast(`จำนวนเงินเกินสิทธิ์คงเหลือ (คงเหลือ ฿${remaining.toLocaleString()})`, 'error');
+                return;
+            }
+
+            // Create New Claim Item
+            const newClaim = {
+                id: 'CLM-' + Math.floor(1000 + Math.random() * 9000),
+                user: 'สมชาย ใจดี',
+                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
+                role: 'Senior Software Engineer',
+                category: categoryKey,
+                categoryName: targetQuota.name,
+                title: title,
+                amount: amount,
+                date: date,
+                status: 'pending',
+                fileName: selectedFile ? selectedFile.name : 'receipt_file.pdf',
+                createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
+            };
+
+            claims.unshift(newClaim);
+            saveData();
+
+            // Reset Form
+            document.getElementById('claim-form').reset();
+            removeFile(new Event('click'));
+            document.getElementById('category-hint').classList.add('hidden');
+
+            renderEmployeeClaims();
+            updatePendingBadge();
+            showToast('ยื่นคำร้องเบิกสวัสดิการเรียบร้อยแล้ว รอ HR ตรวจสอบ', 'success');
+        }
+
+        // Render Claims List in Employee View
+        function renderEmployeeClaims() {
+            const container = document.getElementById('employee-claims-list');
+            const filterStatus = document.getElementById('filter-status').value;
+            const searchQuery = document.getElementById('search-input').value.toLowerCase();
+
+            // Only show logged in employee's claims (in real app, filter by user)
+            let userClaims = claims.filter(c => c.user === 'สมชาย ใจดี');
+
+            if (filterStatus !== 'all') {
+                userClaims = userClaims.filter(c => c.status === filterStatus);
+            }
+
+            if (searchQuery) {
+                userClaims = userClaims.filter(c => 
+                    c.title.toLowerCase().includes(searchQuery) || 
+                    c.categoryName.toLowerCase().includes(searchQuery) ||
+                    c.id.toLowerCase().includes(searchQuery)
+                );
+            }
+
+            if (userClaims.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <i class="fa-solid fa-box-open text-slate-300 text-3xl mb-2"></i>
+                        <p class="text-sm font-medium text-slate-500">ไม่พบประวัติการขอเบิกสวัสดิการ</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = userClaims.map(item => {
+                const statusBadge = getStatusBadge(item.status);
+                return `
+                    <div class="bg-slate-50/70 hover:bg-white p-4 rounded-xl border border-slate-200/80 transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-md border border-brand-100">
+                                    ${item.id}
+                                </span>
+                                <span class="text-xs text-slate-500 font-medium">${item.categoryName}</span>
+                                <span class="text-slate-300">•</span>
+                                <span class="text-xs text-slate-400"><i class="fa-regular fa-calendar me-1"></i>${item.date}</span>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-sm group-hover:text-brand-600 transition-colors">${item.title}</h4>
+                            <div class="flex items-center gap-3 text-xs text-slate-500">
+                                <button onclick="viewReceipt('${item.id}')" class="text-brand-600 hover:underline flex items-center gap-1 font-medium">
+                                    <i class="fa-solid fa-paperclip"></i>
+                                    ${item.fileName}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-200/50">
+                            <div class="text-right">
+                                <span class="text-lg font-bold text-slate-900">฿${item.amount.toLocaleString()}</span>
+                            </div>
+                            <div>
+                                ${statusBadge}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Status Badge Helper
+        function getStatusBadge(status) {
+            if (status === 'approved') {
+                return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> อนุมัติแล้ว
+                        </span>`;
+            } else if (status === 'pending') {
+                return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span> รอตรวจสอบ
+                        </span>`;
+            } else {
+                return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span> ไม่อนุมัติ
+                        </span>`;
+            }
+        }
+
+        // Render HR View Table
+        function renderHrTable() {
+            const tbody = document.getElementById('hr-claims-tbody');
+            let filtered = claims;
+
+            if (hrTableFilter !== 'all') {
+                filtered = claims.filter(c => c.status === hrTableFilter);
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-8 text-slate-400">
+                            ไม่พบข้อมูลคำร้องตามเงื่อนไขที่เลือก
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(item => {
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3.5 px-4">
+                            <div class="flex items-center gap-2.5">
+                                <img src="${item.avatar}" class="w-8 h-8 rounded-full object-cover">
+                                <div>
+                                    <p class="font-semibold text-slate-800 text-xs">${item.user}</p>
+                                    <p class="text-[10px] text-slate-400">${item.role}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <p class="font-medium text-slate-800 text-xs">${item.title}</p>
+                            <span class="text-[11px] text-slate-500">${item.categoryName} (${item.id})</span>
+                        </td>
+                        <td class="py-3.5 px-4 text-xs text-slate-600">
+                            ${item.date}
+                        </td>
+                        <td class="py-3.5 px-4 text-right font-bold text-slate-900">
+                            ฿${item.amount.toLocaleString()}
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            <button onclick="viewReceipt('${item.id}')" class="text-brand-600 hover:text-brand-800 text-xs font-medium bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg transition-colors">
+                                <i class="fa-solid fa-eye me-1"></i> ดูใบเสร็จ
+                            </button>
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            ${getStatusBadge(item.status)}
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            ${item.status === 'pending' ? `
+                                <div class="flex items-center justify-center gap-1.5">
+                                    <button onclick="updateClaimStatus('${item.id}', 'approved')" 
+                                            class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium shadow-2xs transition-colors flex items-center gap-1">
+                                        <i class="fa-solid fa-check"></i> อนุมัติ
+                                    </button>
+                                    <button onclick="updateClaimStatus('${item.id}', 'rejected')" 
+                                            class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-medium shadow-2xs transition-colors flex items-center gap-1">
+                                        <i class="fa-solid fa-xmark"></i> ไม่อนุมัติ
+                                    </button>
+                                </div>
+                            ` : `
+                                <span class="text-xs text-slate-400">เสร็จสิ้นแล้ว</span>
+                            `}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Filter HR Table Tabs
+        function filterHrTable(status) {
+            hrTableFilter = status;
+            ['all', 'pending', 'approved', 'rejected'].forEach(s => {
+                const tab = document.getElementById(`tab-hr-${s}`);
+                if (s === status) {
+                    tab.className = "px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-2xs";
+                } else {
+                    tab.className = "px-3 py-1.5 rounded-lg hover:text-slate-900";
+                }
+            });
+            renderHrTable();
+        }
+
+        // HR Action: Approve or Reject
+        function updateClaimStatus(claimId, newStatus) {
+            const claim = claims.find(c => c.id === claimId);
+            if (!claim) return;
+
+            const oldStatus = claim.status;
+            claim.status = newStatus;
+
+            // Update Quotas Used Amount if approved
+            if (newStatus === 'approved' && oldStatus !== 'approved') {
+                if (quotas[claim.category]) {
+                    quotas[claim.category].used += claim.amount;
+                }
+            } else if (oldStatus === 'approved' && newStatus !== 'approved') {
+                if (quotas[claim.category]) {
+                    quotas[claim.category].used -= claim.amount;
+                }
+            }
+
+            saveData();
+            renderHrTable();
+            renderHrStats();
+            updatePendingBadge();
+
+            const actionText = newStatus === 'approved' ? 'อนุมัติเรียบร้อยแล้ว' : 'ปฏิเสธรายการเบิกเรียบร้อยแล้ว';
+            const toastType = newStatus === 'approved' ? 'success' : 'info';
+            showToast(`คำร้อง ${claim.id} ถูก${actionText}`, toastType);
+        }
+
+        // Render HR Stats Overview
+        function renderHrStats() {
+            const pendingCount = claims.filter(c => c.status === 'pending').length;
+            const approvedList = claims.filter(c => c.status === 'approved');
+            const totalApprovedAmount = approvedList.reduce((acc, curr) => acc + curr.amount, 0);
+
+            document.getElementById('hr-stat-pending').innerText = pendingCount;
+            document.getElementById('hr-stat-approved').innerText = approvedList.length;
+            document.getElementById('hr-stat-total-amount').innerText = '฿' + totalApprovedAmount.toLocaleString();
+        }
+
+        // Update Header Badge for Pending Items
+        function updatePendingBadge() {
+            const pendingCount = claims.filter(c => c.status === 'pending').length;
+            const badge = document.getElementById('pending-badge');
+            if (pendingCount > 0) {
+                badge.innerText = pendingCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // Modal View Receipt
+        function viewReceipt(claimId) {
+            const claim = claims.find(c => c.id === claimId);
+            if (!claim) return;
+
+            const modalContent = document.getElementById('receipt-modal-content');
+            modalContent.innerHTML = `
+                <div class="text-center space-y-3 w-full">
+                    <div class="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center text-brand-600 text-2xl mx-auto border border-brand-100">
+                        <i class="fa-solid fa-file-invoice"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">${claim.fileName}</h4>
+                        <p class="text-xs text-slate-500">รหัสคำร้อง: ${claim.id} | ยอดเงิน: ฿${claim.amount.toLocaleString()}</p>
+                    </div>
+                    <div class="p-3 bg-white rounded-xl border border-slate-200 text-left text-xs space-y-1 text-slate-600">
+                        <p><span class="font-semibold text-slate-800">พนักงาน:</span> ${claim.user}</p>
+                        <p><span class="font-semibold text-slate-800">รายการ:</span> ${claim.title}</p>
+                        <p><span class="font-semibold text-slate-800">วันที่ตามใบเสร็จ:</span> ${claim.date}</p>
+                    </div>
+                    <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 bg-slate-50">
+                        <i class="fa-solid fa-image text-slate-300 text-4xl mb-2"></i>
+                        <p class="text-xs text-slate-400">ตัวอย่างรูปภาพใบเสร็จรับเงิน (Simulated Document Preview)</p>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('receipt-modal').classList.remove('hidden');
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receipt-modal').classList.add('hidden');
+        }
+
+        // Toast Notification System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bg = 'bg-slate-900 text-white';
+            let icon = 'fa-circle-info text-blue-400';
+
+            if (type === 'success') {
+                bg = 'bg-emerald-950 border border-emerald-800 text-emerald-100';
+                icon = 'fa-circle-check text-emerald-400';
+            } else if (type === 'error') {
+                bg = 'bg-rose-950 border border-rose-800 text-rose-100';
+                icon = 'fa-circle-exclamation text-rose-400';
+            } else if (type === 'warning') {
+                bg = 'bg-amber-950 border border-amber-800 text-amber-100';
+                icon = 'fa-triangle-exclamation text-amber-400';
+            }
+
+            toast.className = `${bg} px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center gap-3 transition-all duration-300 transform translate-y-2 pointer-events-auto max-w-md`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icon} text-lg"></i>
+                <span class="flex-1">${message}</span>
+                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
